@@ -3,7 +3,6 @@ __author__ = 'flo'
 import glob
 import re
 import numpy
-import cv
 import cv2
 import math
 from matplotlib import pyplot
@@ -37,10 +36,6 @@ class HandProcessor(object):
         #init matplot
         self.plotCount = 0
 
-
-
-
-
     def process(self, image):
 
         # 1. Raw image
@@ -60,7 +55,6 @@ class HandProcessor(object):
         image_contours = numpy.copy(binary)
         image_contours[:,:] = 0
         cv2.drawContours(image_contours, cs, -1, (255, 255, 255), 1)
-
         self.imshow(image_contours)
 
         # 4. Centroid
@@ -73,7 +67,6 @@ class HandProcessor(object):
         cnt = cs[0]
         x,y,w,h = cv2.boundingRect(cnt)
         cv2.rectangle(image_moments,(x,y),(x+w,y+h),(255, 255, 255),2)
-
         self.imshow(image_moments)
 
         # slice hand
@@ -81,8 +74,6 @@ class HandProcessor(object):
         centroid_hand = (centroid[0]-x, centroid[1]-y)
         cv2.circle(image_hand, centroid_hand, 3, (0, 0, 0), -1)
         self.imshow(image_hand)
-
-
 
         # outermost point (just top left rect point for now)
         # TODO: find the one that is actually still pixel of the hand
@@ -115,7 +106,6 @@ class HandProcessor(object):
                 ypos = radius * math.sin(phi) + centroid[1]
                 if i == 5 and k % 20 == 0:
                     print "%d: %d / %d: %d" % (radius, xpos, ypos, D(xpos, ypos))
-                #print centroid
                 sums[i] += D(xpos, ypos) # TODO: make sure no pixel is added twice
 
         print sums
