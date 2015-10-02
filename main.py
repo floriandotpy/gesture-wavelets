@@ -31,12 +31,19 @@ def read_pgm(filename, byteorder='>'):
 
 class HandProcessor(object):
 
-    def __init__(self):
+    def __init__(self, showwindow=True, save=False):
 
-        #init matplot
-        self.plotCount = 0
+        self.showwindow = showwindow
+        self.save = save
+
+        self.filenumber = 0
 
     def process(self, image):
+
+        print "Processing..."
+
+        pyplot.figure()
+        self.plotCount = 0
 
         # 1. Raw image
         self.imshow(image)
@@ -87,9 +94,17 @@ class HandProcessor(object):
         # TODO: rename
         tmp = numpy.copy(binary)
         tmp[binary == 255] = 1
+
         def D(posx, posy):
+            # out of bounds?
+            if posx<0 or posx>tmp.shape[0] or posy<0 or posy>tmp.shape[1]:
+                return 0
+
+            # already returned or simply 0?
             if tmp[posy, posx] == 0:
                 return 0
+
+            # never return "1" twice
             tmp[posy, posx] = 0
             return 1
 
@@ -104,14 +119,12 @@ class HandProcessor(object):
                 # to polar coordinates, offset to centroid center
                 xpos = radius * math.cos(phi) + centroid[0]
                 ypos = radius * math.sin(phi) + centroid[1]
-                if i == 5 and k % 20 == 0:
-                    print "%d: %d / %d: %d" % (radius, xpos, ypos, D(xpos, ypos))
                 sums[i] += D(xpos, ypos) # TODO: make sure no pixel is added twice
 
-        print sums
-
         t = numpy.arange(0.0, distance, step)
+        t = t[:len(sums)]
         self.nextPlot()
+        print sums
         pyplot.plot(t, sums)
 
         # now do wavelet transform on the resulting 1d function
@@ -128,7 +141,17 @@ class HandProcessor(object):
         pyplot.imshow(img, pyplot.cm.gray)
 
     def show(self):
-        pyplot.show()
+
+        if self.save:
+            # TODO: image
+            self.filenumber += 1
+            filename = "output/out-%d.png" % self.filenumber
+            print "Writing %s ..." % filename
+            pyplot.savefig(filename)
+
+        if self.showwindow:
+            pyplot.show()
+
 
     def cart2pol(x, y):
         rho = numpy.sqrt(x**2 + y**2)
@@ -147,12 +170,13 @@ if __name__ == '__main__':
 
     print "%d files with dark background found" % len(files)
 
-    if len(files) > 0:
+    hp = HandProcessor(showwindow=False, save=True)
 
-        filename = "images/%s" % files[3]
+    for filename in files[:10]:
+
+        filename = "images/%s" % filename
 
         # raw image
         image = read_pgm(filename, byteorder='<')
 
-        hp = HandProcessor()
         hp.process(image)
