@@ -86,7 +86,7 @@ class HandProcessor(object):
         # TODO: find the one that is actually still pixel of the hand
         M = (x, y)
         distance = ((centroid[0] - M[0]) ** 2.0 + (centroid[1] - M[1]) ** 2.0) ** 0.5
-        distance -= 2 # FIXME: that -2 is only because out of bounds
+        #distance -= 2 # FIXME: that -2 is only because out of bounds
         stepcount = 30
         step = distance / stepcount
 
@@ -170,9 +170,9 @@ if __name__ == '__main__':
 
     print "%d files with dark background found" % len(files)
 
-    hp = HandProcessor(showwindow=False, save=True)
+    hp = HandProcessor(showwindow=True, save=False)
 
-    for filename in files[:10]:
+    for filename in files[:1]:
 
         filename = "images/%s" % filename
 
