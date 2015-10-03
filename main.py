@@ -57,13 +57,11 @@ class HandProcessor(object):
         # 3. Contours
 
         # find contours
-        copy = numpy.copy(binary)
-        cs, _ = cv2.findContours(copy, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours = self.find_contours(binary)
 
         # draw contours
-        image_contours = numpy.copy(binary)
-        image_contours[:,:] = 0
-        cv2.drawContours(image_contours, cs, -1, (255, 255, 255), 1)
+        image_contours = numpy.zeros_like(binary)
+        cv2.drawContours(image_contours, contours, -1, (255, 255, 255), 1)
         self.imshow(image_contours)
 
         # 4. Centroid
@@ -72,26 +70,25 @@ class HandProcessor(object):
         centroid = (int(moments['m10']/moments['m00']), int(moments['m01']/moments['m00']))
         cv2.circle(image_moments, centroid, 3, (255, 255, 255), -1)
 
-        # find largest bounding rect
-        x, y, w, h = self.largest_bounding_rect(cs)
-
-        cv2.rectangle(image_moments,(x,y),(x+w,y+h),(255, 255, 255),2)
+        # Bounding rect
+        x, y, w, h = self.largest_bounding_rect(contours)
+        cv2.rectangle(image_moments, (x, y), (x+w, y+h), (255, 255, 255), 2)
         self.imshow(image_moments)
 
-        # slice hand
-        image_hand = binary[y:y+h,x:x+w]
+        # Isolate hand / slice image
+        image_hand = binary[y:y+h, x:x+w]
         centroid_hand = (centroid[0]-x, centroid[1]-y)
         cv2.circle(image_hand, centroid_hand, 3, (0, 0, 0), -1)
         self.imshow(image_hand)
 
-        # outermost point (just top left rect point for now)
+        # Outermost point (just top left rect point for now)
         # TODO: find the one that is actually still pixel of the hand
         M = (x, y)
         distance = ((centroid[0] - M[0]) ** 2.0 + (centroid[1] - M[1]) ** 2.0) ** 0.5
         stepcount = 30
         step = distance / stepcount
 
-        # image density function (returns 0 or 1 for each pixel, but never twice "1" for the same)
+        # Image density function (returns 0 or 1 for each pixel, but never twice "1" for the same)
         # TODO: rename
         tmp = numpy.copy(binary)
         tmp[binary == 255] = 1
@@ -134,6 +131,11 @@ class HandProcessor(object):
 
         self.show()
 
+    def find_contours(self, binary):
+        copy = numpy.copy(binary)
+        contours, _ = cv2.findContours(copy, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        return contours
+
     def wavelet_transform(self, data):
 
         # TODO: perform discrete wavelet transform instead
@@ -160,7 +162,6 @@ class HandProcessor(object):
 
         return x, y, w, h
 
-
     def nextPlot(self):
         self.plotCount += 1
         pyplot.subplot(3, 3, self.plotCount)
@@ -172,7 +173,7 @@ class HandProcessor(object):
     def show(self):
 
         if self.save:
-            # TODO: image
+            # TODO: image filename
             self.filenumber += 1
             filename = "output/out-%d.png" % self.filenumber
             print "Writing %s ..." % filename
@@ -181,30 +182,16 @@ class HandProcessor(object):
         if self.showwindow:
             pyplot.show()
 
-    def cart2pol(x, y):
-        rho = numpy.sqrt(x**2 + y**2)
-        phi = numpy.arctan2(y, x)
-        return(rho, phi)
-
-    def pol2cart(rho, phi):
-        x = rho * numpy.cos(phi)
-        y = rho * numpy.sin(phi)
-        return(x, y)
-
 
 if __name__ == '__main__':
 
     files = glob.glob1('images', '*2.pgm')
+    hp = HandProcessor(showwindow=False, save=True)
 
     print "%d files with dark background found" % len(files)
-
-    hp = HandProcessor(showwindow=False, save=True)
 
     for filename in files[:5]:
 
         filename = "images/%s" % filename
-
-        # raw image
         image = read_pgm(filename, byteorder='<')
-
         hp.process(image)
