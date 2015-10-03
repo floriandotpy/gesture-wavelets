@@ -6,6 +6,8 @@ import numpy
 import cv2
 import math
 from matplotlib import pyplot
+from scipy import signal
+
 
 def read_pgm(filename, byteorder='>'):
     """Return image data from a raw PGM file as numpy array.
@@ -48,8 +50,8 @@ class HandProcessor(object):
         # 1. Raw image
         self.imshow(image)
 
-        # 2. Binary image
-        _, binary = cv2.threshold(image, 40, 255, cv2.THRESH_BINARY)
+        # 2. Binary image (assuming bimodal greyvalue distribution)
+        _, binary = cv2.threshold(image, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
         self.imshow(binary)
 
         # 3. Contours
@@ -70,9 +72,9 @@ class HandProcessor(object):
         centroid = (int(moments['m10']/moments['m00']), int(moments['m01']/moments['m00']))
         cv2.circle(image_moments, centroid, 3, (255, 255, 255), -1)
 
-        # bounding rect
-        cnt = cs[0]
-        x,y,w,h = cv2.boundingRect(cnt)
+        # find largest bounding rect
+        x, y, w, h = self.largest_bounding_rect(cs)
+
         cv2.rectangle(image_moments,(x,y),(x+w,y+h),(255, 255, 255),2)
         self.imshow(image_moments)
 
@@ -86,11 +88,10 @@ class HandProcessor(object):
         # TODO: find the one that is actually still pixel of the hand
         M = (x, y)
         distance = ((centroid[0] - M[0]) ** 2.0 + (centroid[1] - M[1]) ** 2.0) ** 0.5
-        #distance -= 2 # FIXME: that -2 is only because out of bounds
         stepcount = 30
         step = distance / stepcount
 
-        # image density function (returns 0 or 1)
+        # image density function (returns 0 or 1 for each pixel, but never twice "1" for the same)
         # TODO: rename
         tmp = numpy.copy(binary)
         tmp[binary == 255] = 1
@@ -128,13 +129,41 @@ class HandProcessor(object):
         pyplot.plot(t, sums)
 
         # now do wavelet transform on the resulting 1d function
-        # TODO
+        cwtmatr = self.wavelet_transform(sums)
+        print "Wavelet result matrix shape: %s" % str(cwtmatr.shape)
 
         self.show()
 
+    def wavelet_transform(self, data):
+
+        # TODO: perform discrete wavelet transform instead
+
+        sig = numpy.copy(data)
+        widths = numpy.arange(1, len(data))
+        cwtmatr = signal.cwt(sig, signal.ricker, widths)
+
+        self.nextPlot()
+        pyplot.imshow(cwtmatr, extent=[-1, 1, 1, 31], cmap='PRGn', aspect='auto',
+                    vmax=abs(cwtmatr).max(), vmin=-abs(cwtmatr).max())
+
+        return cwtmatr
+
+    def largest_bounding_rect(self, contours):
+
+        x, y, w, h = 0, 0, 0, 0
+
+        for cnt in contours:
+            rect = cv2.boundingRect(cnt)
+            _1, _2, width, height = rect
+            if width*height > w*h:
+                x, y, w, h = rect
+
+        return x, y, w, h
+
+
     def nextPlot(self):
         self.plotCount += 1
-        pyplot.subplot(2, 3, self.plotCount)
+        pyplot.subplot(3, 3, self.plotCount)
 
     def imshow(self, img):
         self.nextPlot()
@@ -151,7 +180,6 @@ class HandProcessor(object):
 
         if self.showwindow:
             pyplot.show()
-
 
     def cart2pol(x, y):
         rho = numpy.sqrt(x**2 + y**2)
@@ -170,9 +198,9 @@ if __name__ == '__main__':
 
     print "%d files with dark background found" % len(files)
 
-    hp = HandProcessor(showwindow=True, save=False)
+    hp = HandProcessor(showwindow=False, save=True)
 
-    for filename in files[:1]:
+    for filename in files[:5]:
 
         filename = "images/%s" % filename
 
