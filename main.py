@@ -10,10 +10,10 @@ from scipy import signal
 
 
 def read_pgm(filename, byteorder='>'):
-    """Return image data from a raw PGM file as numpy array.
+    """
+    Return image data from a raw PGM file as numpy array.
 
     Format specification: http://netpbm.sourceforge.net/doc/pgm.html
-
     """
     with open(filename, 'rb') as f:
         buffer = f.read()
@@ -30,6 +30,7 @@ def read_pgm(filename, byteorder='>'):
                             count=int(width)*int(height),
                             offset=len(header)
                             ).reshape((int(height), int(width)))
+
 
 class HandProcessor(object):
 
