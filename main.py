@@ -1,10 +1,11 @@
-__author__ = 'flo'
-
+import math
 import glob
 import re
+
 import numpy
 import cv2
-import math
+import pywt
+
 from matplotlib import pyplot
 from scipy import signal
 
@@ -16,16 +17,16 @@ def read_pgm(filename, byteorder='>'):
     Format specification: http://netpbm.sourceforge.net/doc/pgm.html
     """
     with open(filename, 'rb') as f:
-        buffer = f.read()
+        buf = f.read()
     try:
         header, width, height, maxval = re.search(
             b"(^P5\s(?:\s*#.*[\r\n])*"
             b"(\d+)\s(?:\s*#.*[\r\n])*"
             b"(\d+)\s(?:\s*#.*[\r\n])*"
-            b"(\d+)\s(?:\s*#.*[\r\n]\s)*)", buffer).groups()
+            b"(\d+)\s(?:\s*#.*[\r\n]\s)*)", buf).groups()
     except AttributeError:
         raise ValueError("Not a raw PGM file: '%s'" % filename)
-    return numpy.frombuffer(buffer,
+    return numpy.frombuffer(buf,
                             dtype='u1' if int(maxval) < 256 else byteorder+'u2',
                             count=int(width)*int(height),
                             offset=len(header)
@@ -40,8 +41,9 @@ class HandProcessor(object):
         self.save = save
 
         self.filenumber = 0
+        self.vectors = []
 
-    def process(self, image):
+    def process(self, image, filename):
 
         print "Processing..."
 
@@ -96,7 +98,7 @@ class HandProcessor(object):
 
         def D(posx, posy):
             # out of bounds?
-            if posx<0 or posx>tmp.shape[0] or posy<0 or posy>tmp.shape[1]:
+            if posx < 0 or posx > tmp.shape[0] or posy < 0 or posy > tmp.shape[1]:
                 return 0
 
             # already returned or simply 0?
@@ -118,19 +120,41 @@ class HandProcessor(object):
                 # to polar coordinates, offset to centroid center
                 xpos = radius * math.cos(phi) + centroid[0]
                 ypos = radius * math.sin(phi) + centroid[1]
-                sums[i] += D(xpos, ypos) # TODO: make sure no pixel is added twice
+                sums[i] += D(xpos, ypos)  # TODO: make sure no pixel is added twice
 
         t = numpy.arange(0.0, distance, step)
         t = t[:len(sums)]
-        self.nextPlot()
+        self.next_plot()
         print sums
         pyplot.plot(t, sums)
 
+        print "Discrete Wavelet transform"
+        a, b = self.discrete_wavelet_transform(sums)
+        self.vectors.append([a, b, filename])
+
         # now do wavelet transform on the resulting 1d function
-        cwtmatr = self.wavelet_transform(sums)
-        print "Wavelet result matrix shape: %s" % str(cwtmatr.shape)
+        # cwtmatr = self.wavelet_transform(sums)
+        # print "Wavelet result matrix shape: %s" % str(cwtmatr.shape)
 
         self.show()
+
+    def train_som(self):
+
+        training_data = [v[0] for v in self.vectors]
+        from minisom import MiniSom
+        size = len(training_data[0])
+        self.som = MiniSom(10, 10, size, sigma=0.3, learning_rate=0.5)
+        print "Training SOM..."
+        self.som.train_random(training_data, 100)
+        print "...ready!"
+
+    def use_som(self):
+
+        print "Distance map", self.som.distance_map()
+        training_data = [v[0] for v in self.vectors]
+        for v in training_data:
+            print self.som.winner(v)
+
 
     def find_contours(self, binary):
         copy = numpy.copy(binary)
@@ -145,11 +169,24 @@ class HandProcessor(object):
         widths = numpy.arange(1, len(data))
         cwtmatr = signal.cwt(sig, signal.ricker, widths)
 
-        self.nextPlot()
+        self.next_plot()
         pyplot.imshow(cwtmatr, extent=[-1, 1, 1, 31], cmap='PRGn', aspect='auto',
                     vmax=abs(cwtmatr).max(), vmin=-abs(cwtmatr).max())
 
         return cwtmatr
+
+    def normalize_vectors(self):
+        """
+        Bring all vectors in self.vectors to the same length
+        """
+        maxlength = 0
+        for v in self.vectors:
+            maxlength = len(v) if len(v) > maxlength else maxlength
+
+        self.vectors = [v + [0 for _ in xrange(maxlength - len(v))] for v in self.vectors]
+
+    def discrete_wavelet_transform(self, data):
+        return pywt.dwt(data, 'db1')
 
     def largest_bounding_rect(self, contours):
 
@@ -163,12 +200,12 @@ class HandProcessor(object):
 
         return x, y, w, h
 
-    def nextPlot(self):
+    def next_plot(self):
         self.plotCount += 1
         pyplot.subplot(3, 3, self.plotCount)
 
     def imshow(self, img):
-        self.nextPlot()
+        self.next_plot()
         pyplot.imshow(img, pyplot.cm.gray)
 
     def show(self):
@@ -187,7 +224,7 @@ class HandProcessor(object):
 if __name__ == '__main__':
 
     files = glob.glob1('images', '*2.pgm')
-    hp = HandProcessor(showwindow=False, save=True)
+    tool = HandProcessor(showwindow=False, save=True)
 
     print "%d files with dark background found" % len(files)
 
@@ -195,4 +232,8 @@ if __name__ == '__main__':
 
         filename = "images/%s" % filename
         image = read_pgm(filename, byteorder='<')
-        hp.process(image)
+        tool.process(image, filename)
+
+    # tool.normalize_vectors()
+    tool.train_som()
+    tool.use_som()
