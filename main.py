@@ -48,7 +48,7 @@ class HandProcessor(object):
         print "Processing..."
 
         pyplot.figure()
-        self.plotCount = 0
+
 
         # 1. Raw image
         self.imshow(image)
@@ -132,6 +132,10 @@ class HandProcessor(object):
         a, b = self.discrete_wavelet_transform(sums)
         self.vectors.append([a, b, filename])
 
+        self.next_plot()
+        pyplot.plot(range(len(a)), a)
+        pyplot.plot(range(len(b)), b)
+
         # now do wavelet transform on the resulting 1d function
         # cwtmatr = self.wavelet_transform(sums)
         # print "Wavelet result matrix shape: %s" % str(cwtmatr.shape)
@@ -150,10 +154,22 @@ class HandProcessor(object):
 
     def use_som(self):
 
-        print "Distance map", self.som.distance_map()
+        pyplot.figure()
+
         training_data = [v[0] for v in self.vectors]
+        points = []
         for v in training_data:
-            print self.som.winner(v)
+            point = self.som.winner(v)
+            points.append(point)
+            print point
+
+        xs = [x for x,y in points]
+        ys = [y for x,y in points]
+
+        pyplot.subplot(1,1,1)
+        pyplot.plot(xs, ys, '*')
+
+        pyplot.savefig("output/0-som.png")
 
 
     def find_contours(self, binary):
@@ -228,7 +244,7 @@ if __name__ == '__main__':
 
     print "%d files with dark background found" % len(files)
 
-    for filename in files[:5]:
+    for filename in files[:50]:
 
         filename = "images/%s" % filename
         image = read_pgm(filename, byteorder='<')
