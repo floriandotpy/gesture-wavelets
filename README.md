@@ -8,8 +8,8 @@ Just trying things for my Master thesis. Very WIP.
 
 ## Used dataset
 
-I do not own the dataset. It orginates from:
-[Dr. Sebastien MARCEL - IDIAP 2001](http://www.idiap.ch/resource/gestures/
+I do not own the dataset. It originates from:
+[Dr. Sebastien MARCEL - IDIAP 2001](http://www.idiap.ch/resource/gestures/)
 
 > This is the Jochen Triesch Hand Posture Gallery.
 > One can find hand postures with 3 backgrounds:
