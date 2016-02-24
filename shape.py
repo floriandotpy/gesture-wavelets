@@ -116,18 +116,11 @@ class ShapeDescription(object):
         # draw contours
         image_contours = numpy.zeros_like(binary)
         cv2.drawContours(image_contours, contours, -1, (255, 255, 255), 1)
-        self.imshow(image_contours)
-
-        # 4. Centroid
-        image_moments = numpy.copy(image_contours)
-        moments = cv2.moments(image_moments)
-        centroid = (int(moments['m10']/moments['m00']), int(moments['m01']/moments['m00']))
-        cv2.circle(image_moments, centroid, 3, (255, 255, 255), -1)
 
         # Bounding rect
         x, y, w, h = self.largest_bounding_rect(contours)
-        cv2.rectangle(image_moments, (x, y), (x+w, y+h), (255, 255, 255), 2)
-        self.imshow(image_moments)
+        cv2.rectangle(image_contours, (x, y), (x+w, y+h), (255, 255, 255), 2)
+        self.imshow(image_contours)
 
         # Isolate hand / slice image
         image_hand = image[y:y+h, x:x+w]
