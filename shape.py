@@ -1,7 +1,7 @@
 import math
 import glob
 import re
-
+import itertools
 import numpy
 
 from matplotlib import pyplot
@@ -38,6 +38,15 @@ def read_pgm(filename, byteorder='>'):
 
 class Gabor(object):
 
+    def convolve_raw(self, frame, frequency=0.5, theta=0):
+
+        kernel = gabor_kernel(frequency, theta=theta)
+
+        real = ndi.convolve(image, np.real(kernel), mode='wrap')
+        imag = ndi.convolve(image, np.imag(kernel), mode='wrap')
+
+        return real, imag
+
     def convolve(self, frame, frequency=0.4):
 
         # do not change original. not actually sure this is needed
@@ -52,6 +61,21 @@ class Gabor(object):
         image = (image - image.mean()) / image.std()
         return np.sqrt(ndi.convolve(image, np.real(kernel), mode='wrap')**2 +
                        ndi.convolve(image, np.imag(kernel), mode='wrap')**2)
+
+
+class Coords(object):
+
+
+    def __init__(self, from_shape, to_rows=10, to_cols=10):
+        width = from_shape[0]
+        height = from_shape[1]
+
+        self.row_distance = height / float(to_rows)
+        self.col_distance = width / float(to_cols)
+
+    def get(self, row, col):
+
+        return float(row) * self.row_distance, float(col) * self.col_distance
 
 
 class ShapeDescription(object):
@@ -126,17 +150,39 @@ class ShapeDescription(object):
         image_hand = image[y:y+h, x:x+w]
         self.imshow(image_hand)
 
+        rows = cols = 10
+        coords = Coords(image_hand.shape, to_rows=rows, to_cols=cols)
+        #print "COORDS (%d)" % len(coords), coords
+
         # Gabor filter
-        for freq in (0.7, 0.9, 1.0, 1.2, 1.3, 1.4, 2.0, 3.0, 4.0, 5.0, 10.0):
+        frequencies = (0.7, 0.9, 1.0, 1.2, 1.3, 1.4, 2.0, 3.0, 4.0, 5.0, 10.0)
+        thetas = (0,)
+        results = np.zeros((rows+1, cols+1, len(frequencies), len(thetas), 2))
+        for i, freq in enumerate(frequencies):
 
-            cp = numpy.copy(image_hand)
-            convolved = self.gabor.convolve(cp, freq)
-            convolved = np.array(convolved, dtype=np.uint8)
-            convolved = cv2.equalizeHist(convolved)
+            for j, theta in enumerate(thetas):
 
-            self.imshow(convolved, 'f = %2.2f' % freq)
+                cp = numpy.copy(image_hand)
+                real, imag = self.gabor.convolve_raw(cp, freq)
 
-        self.show()
+                for row in xrange(rows+1):
+                    for col in xrange(cols+1):
+
+                        row_, col_ = coords.get(row, col)
+
+                        results[row][col][i][j][0] = real[row_][col_]
+                        results[row][col][i][j][1] = imag[row_][col_]
+
+                # cp = numpy.copy(image_hand)
+                # convolved = self.gabor.convolve(cp, freq)
+                # convolved = np.array(convolved, dtype=np.uint8)
+                # convolved = cv2.equalizeHist(convolved)
+                #
+                # self.imshow(convolved, 'f = %2.2f' % freq)
+
+        print results
+
+        # self.show()
 
 
 if __name__ == '__main__':
